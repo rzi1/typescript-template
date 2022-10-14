@@ -9,11 +9,11 @@ export async function main(ns: NS) {
   var server = ns.getServer(target);
   while (true) {
     if (ns.getServerSecurityLevel(target) > minSecurity) {
-      await handleWeaken(ns, server, player, minSecurity, target);
+      await handleWeaken(ns, server, player, minSecurity);
     } else if (ns.getServerMoneyAvailable(target) < maxMoney) {
-      await handleGrow(ns, server, player, maxMoney, target);
+      await handleGrow(ns, server, player, maxMoney);
     } else {
-      await handleHack(ns, server, player, target);
+      await handleHack(ns, server, player);
     }
   }
 }
@@ -22,47 +22,48 @@ async function handleWeaken(
   ns: NS,
   server: Server,
   player: Player,
-  minSecurity: number,
-  target: string
+  minSecurity: number
 ) {
+  var target = server.hostname;
   var weakenScript = '/BatchScripts/weaken.js';
-  let weakenThreads = Math.floor(
-    (ns.getServerSecurityLevel(target) - minSecurity) / ns.weakenAnalyze(1, 2) +
-      1
+  let weakenThreads = Math.ceil(
+    (ns.getServerSecurityLevel(target) - minSecurity) / ns.weakenAnalyze(1, 2)
   );
+
   await serveThreads(ns, weakenScript, weakenThreads, target);
-  await ns.sleep(ns.formulas.hacking.weakenTime(server, player) + 500);
+  var weakenWaitTime = ns.formulas.hacking.weakenTime(server, player) + 500;
+  ns.printf('Waiting %d for weaken to complete', weakenWaitTime);
+  await ns.sleep(weakenWaitTime);
 }
 
 async function handleGrow(
   ns: NS,
   server: Server,
   player: Player,
-  maxMoney: number,
-  target: string
+  maxMoney: number
 ) {
+  var target = server.hostname;
   var growScript = '/BatchScripts/grow.js';
-  var increaseNeeded =
-    maxMoney / (ns.getServerMoneyAvailable(target) / maxMoney);
-  let growThreads = ns.growthAnalyze(target, increaseNeeded, 2);
+  var increaseNeeded = maxMoney / ns.getServerMoneyAvailable(target);
+  let growThreads = Math.ceil(ns.growthAnalyze(target, increaseNeeded));
   await serveThreads(ns, growScript, growThreads, target);
-  await ns.sleep(ns.formulas.hacking.growTime(server, player) + 500);
+  var growWaitTime = ns.formulas.hacking.growTime(server, player) + 500;
+  ns.printf('Waiting %d for grow to complete', growWaitTime);
+  await ns.sleep(growWaitTime);
 }
 
-async function handleHack(
-  ns: NS,
-  server: Server,
-  player: Player,
-  target: string
-) {
+async function handleHack(ns: NS, server: Server, player: Player) {
   // calculate number of threads to hack 20% of server money
+  var target = server.hostname;
   var hackScript = '/BatchScripts/hack.js';
   let hackThreads = Math.floor(
-    0.2 / ns.formulas.hacking.hackPercent(server, player)
+    0.5 / ns.formulas.hacking.hackPercent(server, player)
   );
 
-  await serveThreads(ns, hackScript, hackThreads, target);
-  await ns.sleep(ns.formulas.hacking.hackTime(server, player) + 500);
+  await serveThreads(ns, hackScript, hackThreads, server.hostname);
+  var hackWaitTime = ns.formulas.hacking.hackTime(server, player) + 500;
+  ns.printf('Waiting %d for hack to complete', hackWaitTime);
+  await ns.sleep(hackWaitTime);
 }
 
 async function serveThreads(
@@ -73,14 +74,14 @@ async function serveThreads(
 ) {
   var remainingThreads = requiredThreads;
   var rootedServers = getRootServers(ns);
+  ns.printf(
+    'Attempting to serve %d threads of %s',
+    requiredThreads,
+    script,
+    remainingThreads
+  );
   while (remainingThreads > 0) {
     for (var server in rootedServers) {
-      ns.printf(
-        'Attempting to serve %d threads of %s %d remaining',
-        requiredThreads,
-        script,
-        remainingThreads
-      );
       ns.scp(script, rootedServers[server]);
       remainingThreads -= attemptExec(
         ns,
@@ -110,8 +111,8 @@ function attemptExec(
   target: string
 ): number {
   var servable = checkThreads(ns, threads, script, server);
-  if (servable > 0) {
-    ns.exec(script, server, servable, target);
+  if (servable > 0 && getRootServers(ns).includes(server)) {
+    ns.exec(script, server, servable, target, 0);
     return servable;
   } else {
     return 0;

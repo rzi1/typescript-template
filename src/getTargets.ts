@@ -9,15 +9,15 @@ export async function main(ns: NS) {
     maximumFractionDigits: 0,
   });
   for (var server in servers) {
-    var { hostname, moneyMax, requiredHackingSkill } = ns.getServer(
-      servers[server]
-    );
+    var { hostname, moneyMax, requiredHackingSkill, moneyAvailable } =
+      ns.getServer(servers[server]);
 
     if (player.skills.hacking > requiredHackingSkill && moneyMax > 0) {
       ns.tprintf(
-        'Hostname: %s || Max Money: %s || Hacking Skill: %d',
+        'Hostname: %s || Max Money: %s || Current Money: %s || Hacking Skill: %d',
         hostname,
         formatter.format(moneyMax),
+        formatter.format(moneyAvailable),
         requiredHackingSkill
       );
     }
