@@ -3,97 +3,47 @@ import { NS } from '@ns';
 export function getTargets(ns: NS): string[] {
   ns.disableLog('ALL');
   var servers = getRemoteServers(ns);
-  var viableTargets = servers.filter(server => ns.hasRootAccess(server));
   var player = ns.getPlayer();
-  var targetsList: string[] = [];
-  for (var target of viableTargets) {
-    var { hostname, moneyMax, requiredHackingSkill } = ns.getServer(target);
-    if (player.skills.hacking > requiredHackingSkill * 2 && moneyMax > 0) {
-      targetsList.push(hostname);
-    }
-  }
-  return targetsList;
+  return servers.filter(
+    server =>
+      ns.hasRootAccess(server) &&
+      ns.getServerMaxMoney(server) > 0 &&
+      player.skills.hacking > ns.getServerRequiredHackingLevel(server) * 2
+  );
 }
 
 export function getRemoteServers(ns: NS): string[] {
   ns.disableLog('ALL');
-  var checked: string[] = [];
+  var allServerList = getAllServers(ns);
   var ownedServers = ns.getPurchasedServers();
-  var toCheck = [];
-  var serverList = [];
-  var serversDepth0 = ns.scan('home');
-  for (var server in serversDepth0) {
-    var newServer = serversDepth0[server];
-    if (!checked.includes(newServer) && !ownedServers.includes(newServer)) {
-      toCheck.push(newServer);
-      serverList.push(newServer);
-    }
-  }
-  checked.push('home');
-  while (toCheck.length > checked.length) {
-    for (var server in toCheck) {
-      var toCheckServer = toCheck[server];
-      if (!checked.includes(toCheckServer)) {
-        checked.push(toCheckServer);
-        var newServers = ns.scan(toCheckServer);
-        for (var server in newServers) {
-          var newServer = newServers[server];
-          if (!checked.includes(newServer)) {
-            toCheck.push(newServer);
-            serverList.push(newServer);
-          }
-        }
-      }
-    }
-  }
-  return serverList;
+  ownedServers.push('home');
+  return allServerList.filter(server => !ownedServers.includes(server));
 }
 
 export function getRootServers(ns: NS): string[] {
   ns.disableLog('ALL');
-  var checked: string[] = [];
-  var rootServerList: string[] = ns.getPurchasedServers();
-  var toCheck = [];
-  var allServerList = [];
-  var serversDepth0 = ns.scan('home');
-  for (var server in serversDepth0) {
-    var newServer = serversDepth0[server];
-    if (!checked.includes(newServer) && !rootServerList.includes(newServer)) {
-      toCheck.push(newServer);
-      allServerList.push(newServer);
-      if (ns.hasRootAccess(newServer) && ns.getServerMaxRam(newServer) > 0) {
-        rootServerList.push(newServer);
-      }
-    }
-  }
-  checked.push('home');
-  while (toCheck.length > checked.length) {
-    for (var server in toCheck) {
-      var toCheckServer = toCheck[server];
-      if (!checked.includes(toCheckServer)) {
-        checked.push(toCheckServer);
-        var newServers = ns.scan(toCheckServer);
-        for (var server in newServers) {
-          var newServer = newServers[server];
-          if (!checked.includes(newServer)) {
-            toCheck.push(newServer);
-            allServerList.push(newServer);
-            if (
-              ns.hasRootAccess(newServer) &&
-              ns.getServerMaxRam(newServer) > 0
-            ) {
-              rootServerList.push(newServer);
-            }
-          }
-        }
-      }
-    }
-  }
-  rootServerList.push('home');
-  return rootServerList;
+  var allServerList = getAllServers(ns);
+  return allServerList.filter(server => ns.hasRootAccess(server));
 }
 
 export function getTimeString(): string {
   var now = new Date();
   return now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+}
+
+export function getAllServers(
+  ns: NS,
+  root: string = 'home',
+  serverList: string[] = []
+) {
+  ns.disableLog('ALL');
+  if (!serverList.includes(root)) {
+    serverList.push(root);
+    for (var server of ns.scan(root)) {
+      if (!serverList.includes(server)) {
+        getAllServers(ns, server, serverList);
+      }
+    }
+  }
+  return serverList;
 }
