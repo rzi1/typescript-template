@@ -1,4 +1,4 @@
-import { getRootServers } from 'getRootServers.js';
+import { getRootServers } from 'utils.js';
 import { NS, Player, Server } from '@ns';
 export async function main(ns: NS) {
   // Requires target to be prepped before running

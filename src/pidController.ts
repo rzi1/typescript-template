@@ -29,15 +29,8 @@ async function handleWeaken(
   let weakenThreads = Math.ceil(
     (ns.getServerSecurityLevel(target) - minSecurity) / ns.weakenAnalyze(1, 2)
   );
-
-  await serveThreads(ns, weakenScript, weakenThreads, target);
-  var weakenWaitTime = ns.formulas.hacking.weakenTime(server, player) + 500;
-  ns.printf(
-    'Waiting %d for weaken to complete at %s',
-    weakenWaitTime,
-    getTimeString()
-  );
-  await ns.sleep(weakenWaitTime);
+  var pids = await serveThreads(ns, weakenScript, weakenThreads, target);
+  await waitPids(ns, pids);
 }
 
 async function handleGrow(
@@ -50,33 +43,17 @@ async function handleGrow(
   var growScript = '/BatchScripts/grow.js';
   var increaseNeeded = maxMoney / (ns.getServerMoneyAvailable(target) + 1);
   let growThreads = Math.ceil(ns.growthAnalyze(target, increaseNeeded));
-  await serveThreads(ns, growScript, growThreads, target);
-  var growWaitTime = ns.formulas.hacking.growTime(server, player) + 500;
-  ns.printf(
-    'Waiting %d for grow to complete at %s',
-    growWaitTime,
-    getTimeString()
-  );
-  await ns.sleep(growWaitTime);
+  var pids = await serveThreads(ns, growScript, growThreads, target);
+  await waitPids(ns, pids);
 }
 
 async function handleHack(ns: NS, server: Server, player: Player) {
   // calculate number of threads to hack 20% of server money
   var target = server.hostname;
   var hackScript = '/BatchScripts/hack.js';
-  let hackThreads = Math.floor(
-    0.5 / ns.formulas.hacking.hackPercent(server, player)
-  );
-
-  await serveThreads(ns, hackScript, hackThreads, server.hostname);
-  var hackWaitTime = ns.formulas.hacking.hackTime(server, player) + 500;
-
-  ns.printf(
-    'Waiting %d for hack to complete at %s',
-    hackWaitTime,
-    getTimeString()
-  );
-  await ns.sleep(hackWaitTime);
+  let hackThreads = Math.floor(0.5 / ns.hackAnalyze(server.hostname));
+  var pids = await serveThreads(ns, hackScript, hackThreads, server.hostname);
+  await waitPids(ns, pids);
 }
 
 async function serveThreads(
@@ -84,9 +61,10 @@ async function serveThreads(
   script: string,
   requiredThreads: number,
   target: string
-) {
+): Promise<number[]> {
   var remainingThreads = requiredThreads;
   var rootedServers = getRootServers(ns);
+  var pids: number[] = [];
   ns.printf(
     'Attempting to serve %d threads of %s at %s',
     requiredThreads,
@@ -96,13 +74,21 @@ async function serveThreads(
   while (remainingThreads > 0) {
     for (var server in rootedServers) {
       ns.scp(script, rootedServers[server]);
-      remainingThreads -= attemptExec(
+
+      var [servedThreads, pid] = attemptExec(
         ns,
         rootedServers[server],
         script,
         remainingThreads,
         target
       );
+      if (pid == 0) {
+        continue;
+      } else {
+        pids.push(pid);
+        remainingThreads -= servedThreads;
+      }
+
       if (remainingThreads <= 0) {
         ns.printf(
           'Succeeded serving %d threads of %s  at %s',
@@ -115,21 +101,23 @@ async function serveThreads(
     }
     await ns.sleep(50);
   }
+  return pids;
 }
+
 function attemptExec(
   ns: NS,
   server: string,
   script: string,
   threads: number,
   target: string
-): number {
+): number[] {
   // refactor to send pid back so we can use at start of the augment
   var servable = checkThreads(ns, threads, script, server);
   if (servable > 0 && getRootServers(ns).includes(server)) {
-    ns.exec(script, server, servable, target, 0);
-    return servable;
+    var pid = ns.exec(script, server, servable, target, 0);
+    return [servable, pid];
   } else {
-    return 0;
+    return [0, 0];
   }
 }
 function checkThreads(
@@ -153,4 +141,20 @@ function checkThreads(
 
 function getFreeRam(ns: NS, server: string) {
   return ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
+}
+
+async function waitPids(ns: NS, pids: number[]) {
+  var running = true;
+  while (running) {
+    running = false;
+    for (const pid of pids) {
+      const process = ns.getRunningScript(pid);
+      if (process != undefined) {
+        running = true;
+        break;
+      }
+      await ns.sleep(20);
+    }
+    await ns.sleep(50);
+  }
 }

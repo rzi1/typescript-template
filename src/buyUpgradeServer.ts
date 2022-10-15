@@ -6,13 +6,18 @@ export async function main(ns: NS) {
   const minRam = 8;
   let curRam: number = minRam;
   const maxRam = 16384; /// 256,512,1024,2048,4096,8192,16384
-  while (true) {
+  var buying = true;
+  while (buying) {
     var servers = ns.getPurchasedServers();
     if (servers.length < maxServers) {
       initialPurchase(ns, curRam, servers.length, maxServers);
     } else {
       curRam = getRam(ns, servers, curRam, maxRam);
       attemptUpgrades(ns, servers, curRam);
+    }
+    if (curRam > maxRam) {
+      buying = false;
+      ns.tprint('Completed buying and upgrading all servers');
     }
     await ns.sleep(20000);
   }
@@ -37,9 +42,6 @@ function getRam(
   curRam: number,
   maxRam: number
 ): number {
-  if (curRam === maxRam) {
-    return curRam;
-  }
   for (var i = 0; i < servers.length; i++) {
     var serverRam = ns.getServerMaxRam(servers[i]);
     if (serverRam < curRam) {
