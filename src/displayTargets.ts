@@ -7,9 +7,9 @@ export async function main(ns: NS) {
     currency: 'USD',
     maximumFractionDigits: 0,
   });
-  for (var server in servers) {
+  for (var server of servers) {
     var { hostname, moneyMax, requiredHackingSkill, moneyAvailable } =
-      ns.getServer(servers[server]);
+      ns.getServer(server);
     ns.tprintf(
       'Hostname: %s || Max Money: %s || Current Money: %s || Hacking Skill: %d',
       hostname,

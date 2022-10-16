@@ -69,9 +69,9 @@ async function checkHacking(
         } else {
           return rooted;
         }
-        ns.print('Nuking: ' + server);
-        ns.nuke(server);
       }
+      ns.print('Nuking: ' + server);
+      ns.nuke(server);
     }
     if (ns.hasRootAccess(server)) {
       ns.print('Have root access: ' + server);

@@ -33,7 +33,7 @@ async function buyNodes(ns: NS, nodes: number) {
 }
 
 async function buyLevels(ns: NS, node: number, level: number) {
-  let maxLevel = 80;
+  let maxLevel = 200;
   var buyFlag = level < maxLevel;
   while (buyFlag) {
     if ((canBuy(ns, ns.hacknet.getLevelUpgradeCost(node, 1)), 3)) {
@@ -48,7 +48,7 @@ async function buyLevels(ns: NS, node: number, level: number) {
 }
 
 async function buyRam(ns: NS, node: number, ram: number) {
-  let maxRam = 16;
+  let maxRam = 64;
   var buyFlag = ram < maxRam;
   while (buyFlag) {
     if ((canBuy(ns, ns.hacknet.getRamUpgradeCost(node, 1)), 3)) {
@@ -63,7 +63,7 @@ async function buyRam(ns: NS, node: number, ram: number) {
 }
 
 async function buyCores(ns: NS, node: number, cores: number) {
-  let maxCores = 8;
+  let maxCores = 16;
   var buyFlag = cores < maxCores;
   while (buyFlag) {
     if ((canBuy(ns, ns.hacknet.getCoreUpgradeCost(node, 1)), 3)) {
