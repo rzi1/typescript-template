@@ -26,6 +26,10 @@ export function getRootServers(ns: NS): string[] {
   return allServerList.filter(server => ns.hasRootAccess(server));
 }
 
+export function getFreeRam(ns: NS, server: string) {
+  return ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
+}
+
 export function getTimeString(): string {
   var now = new Date();
   return now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();

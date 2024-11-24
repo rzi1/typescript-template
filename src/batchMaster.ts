@@ -1,9 +1,9 @@
 import { getRootServers } from 'utils.js';
 import { NS, Player, Server } from '@ns';
 export async function main(ns: NS) {
-  // Requires target to be prepped before running
+  // Requires target to be prepped before running with 'xp smasher'
   var host: Server = ns.getServer('home');
-  var target: Server = ns.getServer('silver-helix');
+  var target: Server = ns.getServer(ns.args[0].toString());
   var player: Player = ns.getPlayer();
   var hackScript = '/BatchScripts/hack.js';
   var growScript = '/BatchScripts/grow.js';
@@ -13,8 +13,9 @@ export async function main(ns: NS) {
   var weakenRam = ns.getScriptRam(weakenScript, target.hostname);
   let hackAmount = 0.2;
   ns.tprint(target);
+
   // 50ms Hack 50ms -> Weaken 50ms-> Grow 50ms-> Weaken
-  // Determin hack threads to get 40% of server funds
+  // Determin hack threads to get 20% of server funds
   var hackThreads = Math.floor(
     hackAmount / ns.formulas.hacking.hackPercent(target, player)
   );
@@ -28,6 +29,7 @@ export async function main(ns: NS) {
   let hackWeakenThreads = Math.ceil(
     (target.minDifficulty * (1 + hackSecurityIncrease)) / ns.weakenAnalyze(1)
   );
+
   //grow to counter hack
   var stolenMoney = target.moneyMax * hackAmount;
   var increaseNeeded = target.moneyMax / (target.moneyMax - stolenMoney);
@@ -54,8 +56,6 @@ export async function main(ns: NS) {
     growWeakenThreads,
     totalRequiredRam
   );
-}
-
-function getFreeRam(ns: NS, server: string) {
-  return ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
+  // need to execute scripts at same time with the sleeps so that they execute in Hack > Weaken > Grow > Weaken
+  // Per batch executing another batch with delay between Need around 1TB of RAM for this to work the best
 }

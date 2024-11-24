@@ -2,10 +2,10 @@ import { NS, Player } from '@ns';
 import { getRemoteServers } from 'utils.js';
 export async function main(ns: NS) {
   ns.disableLog('ALL');
+  var rooted: string[] = [];
   while (true) {
     var servers = getRemoteServers(ns);
     var player = ns.getPlayer();
-    var rooted: string[] = [];
     for (var server of servers) {
       if (!rooted.includes(server)) {
         rooted = await checkHacking(server, player, ns, rooted);
@@ -74,7 +74,7 @@ async function checkHacking(
       ns.nuke(server);
     }
     if (ns.hasRootAccess(server)) {
-      ns.print('Have root access: ' + server);
+      ns.tprint('Acquired root access to ' + server);
       rooted.push(server);
       return rooted;
     }

@@ -1,5 +1,5 @@
 import { NS, Player, Server } from '@ns';
-import { getRootServers, getTimeString } from 'utils.js';
+import { getRootServers, getTimeString, getFreeRam } from 'utils.js';
 export async function main(ns: NS) {
   ns.disableLog('ALL');
   var target: any = ns.args[0];
@@ -9,21 +9,16 @@ export async function main(ns: NS) {
   var server = ns.getServer(target);
   while (true) {
     if (ns.getServerSecurityLevel(target) > minSecurity) {
-      await handleWeaken(ns, server, player, minSecurity);
+      await handleWeaken(ns, server, minSecurity);
     } else if (ns.getServerMoneyAvailable(target) < maxMoney) {
-      await handleGrow(ns, server, player, maxMoney);
+      await handleGrow(ns, server, maxMoney);
     } else {
       await handleHack(ns, server, player);
     }
   }
 }
 
-async function handleWeaken(
-  ns: NS,
-  server: Server,
-  player: Player,
-  minSecurity: number
-) {
+async function handleWeaken(ns: NS, server: Server, minSecurity: number) {
   var target = server.hostname;
   var weakenScript = '/BatchScripts/weaken.js';
   let weakenThreads = Math.ceil(
@@ -33,12 +28,7 @@ async function handleWeaken(
   await waitPids(ns, pids);
 }
 
-async function handleGrow(
-  ns: NS,
-  server: Server,
-  player: Player,
-  maxMoney: number
-) {
+async function handleGrow(ns: NS, server: Server, maxMoney: number) {
   var target = server.hostname;
   var growScript = '/BatchScripts/grow.js';
   var increaseNeeded = maxMoney / (ns.getServerMoneyAvailable(target) + 1);
@@ -66,10 +56,10 @@ async function serveThreads(
   var rootedServers = getRootServers(ns);
   var pids: number[] = [];
   ns.printf(
-    'Attempting to serve %d threads of %s at %s',
+    '%s - Attempting to serve %d threads of %s',
+    getTimeString(),
     requiredThreads,
-    script,
-    getTimeString()
+    script
   );
   while (remainingThreads > 0) {
     for (var server in rootedServers) {
@@ -91,14 +81,23 @@ async function serveThreads(
 
       if (remainingThreads <= 0) {
         ns.printf(
-          'Succeeded serving %d threads of %s  at %s',
+          '%s - Succeeded serving %d threads of %s',
+          getTimeString(),
           requiredThreads,
-          script,
-          getTimeString()
+          script
         );
         break;
+      } else {
+        ns.printf(
+          '%s - %d %s threads served \n %d remaining',
+          getTimeString(),
+          servedThreads,
+          script,
+          remainingThreads
+        );
       }
     }
+
     await ns.sleep(50);
   }
   return pids;
@@ -127,20 +126,21 @@ function checkThreads(
   server: string
 ): number {
   var serverFreeRam = getFreeRam(ns, server);
-  var scriptRam = ns.getScriptRam(script, 'home');
-  var requiredRam = scriptRam * threads;
-  if (serverFreeRam < scriptRam) {
+  var scriptRam = ns.getScriptRam(script, server);
+  if (server == 'home') {
+    serverFreeRam -= 128;
+    if (serverFreeRam < 0) {
+      return 0;
+    }
+  }
+  var servable = Math.floor(serverFreeRam / scriptRam);
+  if (servable <= 0) {
     return 0;
   }
-  if (requiredRam > serverFreeRam) {
-    return Math.floor(serverFreeRam / scriptRam);
-  } else {
+  if (servable > threads) {
     return threads;
   }
-}
-
-function getFreeRam(ns: NS, server: string) {
-  return ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
+  return servable;
 }
 
 async function waitPids(ns: NS, pids: number[]) {

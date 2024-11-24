@@ -1,17 +1,33 @@
 import { NS, Server } from '@ns';
 import { getRootServers, getTimeString } from 'utils.js';
 export async function main(ns: NS) {
-  ns.disableLog('ALL');
-  var target: any = 'joesguns';
-  var minSecurity = ns.getServerMinSecurityLevel(target);
-  var server = ns.getServer(target);
+  // use earlier to
+  // ns.disableLog('ALL');
   while (true) {
+    var server: Server = ns.getServer(ns.args[0].toString());
+    var target: string = server.hostname;
+    var minSecurity = ns.getServerMinSecurityLevel(target);
+    var maxMoney: number = ns.getServerMaxMoney(target);
+    var currentMoney: number = ns.getServerMoneyAvailable(target);
+    var currentSec: number = ns.getServerSecurityLevel(target);
+    ns.tprintf(
+      'Current Security: %s -- Min Security: %s',
+      currentSec,
+      minSecurity
+    );
+    ns.tprintf('Max Money: %s -- Current Money: %s', maxMoney, currentMoney);
     if (ns.getServerSecurityLevel(target) > minSecurity) {
       ns.tprintf('%s --- Weakening --- XP Smasher', getTimeString());
       await handleWeaken(ns, server, minSecurity);
-    } else {
+    } else if (currentMoney < maxMoney) {
       ns.tprintf('%s --- Growing --- XP Smasher', getTimeString());
-      await handleGrow(ns, server);
+      await handleGrow(ns, server, maxMoney);
+    } else {
+      ns.tprintf(
+        '%s --- Max Growth/Min Sec --- XP Smasher --- %s',
+        getTimeString(),
+        target
+      );
     }
   }
 }
@@ -22,17 +38,15 @@ async function handleWeaken(ns: NS, server: Server, minSecurity: number) {
   let weakenThreads = Math.ceil(
     (ns.getServerSecurityLevel(target) - minSecurity) / ns.weakenAnalyze(1, 2)
   );
-  if (weakenThreads > 0) {
-    weakenThreads = Infinity;
-  }
   var pids = await serveThreads(ns, weakenScript, weakenThreads, target);
   await waitPids(ns, pids);
 }
 
-async function handleGrow(ns: NS, server: Server) {
+async function handleGrow(ns: NS, server: Server, maxMoney: number) {
   var target = server.hostname;
   var growScript = '/BatchScripts/grow.js';
-  let growThreads = Infinity;
+  var increaseNeeded = maxMoney / (ns.getServerMoneyAvailable(target) + 1);
+  let growThreads = Math.ceil(ns.growthAnalyze(target, increaseNeeded));
   var pids = await serveThreads(ns, growScript, growThreads, target);
   await waitPids(ns, pids);
 }
@@ -46,6 +60,12 @@ async function serveThreads(
   var remainingThreads = requiredThreads;
   var rootedServers = getRootServers(ns);
   var pids: number[] = [];
+  ns.printf(
+    '%s - Attempting to serve %d threads of %s',
+    getTimeString(),
+    requiredThreads,
+    script
+  );
   while (remainingThreads > 0) {
     for (var server in rootedServers) {
       ns.scp(script, rootedServers[server]);
@@ -63,10 +83,26 @@ async function serveThreads(
         pids.push(pid);
         remainingThreads -= servedThreads;
       }
+
       if (remainingThreads <= 0) {
+        ns.printf(
+          '%s - Succeeded serving %d threads of %s',
+          getTimeString(),
+          requiredThreads,
+          script
+        );
         break;
+      } else {
+        ns.printf(
+          '%s - %d %s threads served \n %d remaining',
+          getTimeString(),
+          servedThreads,
+          script,
+          remainingThreads
+        );
       }
     }
+
     await ns.sleep(50);
   }
   return pids;
@@ -95,16 +131,21 @@ function checkThreads(
   server: string
 ): number {
   var serverFreeRam = getFreeRam(ns, server);
-  var scriptRam = ns.getScriptRam(script, 'home');
-  var requiredRam = scriptRam * threads;
-  if (serverFreeRam < scriptRam) {
+  var scriptRam = ns.getScriptRam(script, server);
+  if (server == 'home') {
+    serverFreeRam -= 128;
+    if (serverFreeRam < 0) {
+      return 0;
+    }
+  }
+  var servable = Math.floor(serverFreeRam / scriptRam);
+  if (servable <= 0) {
     return 0;
   }
-  if (requiredRam > serverFreeRam) {
-    return Math.floor(serverFreeRam / scriptRam);
-  } else {
+  if (servable > threads) {
     return threads;
   }
+  return servable;
 }
 
 function getFreeRam(ns: NS, server: string) {

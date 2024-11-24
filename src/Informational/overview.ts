@@ -1,7 +1,7 @@
 import { NS } from '@ns';
 
 export async function main(ns: NS) {
-  const doc = document; // This is expensive! (25GB RAM) Perhaps there's a way around it? ;)
+  let doc = eval('document');
   const hook0 = doc.getElementById('overview-extra-hook-0');
   const hook1 = doc.getElementById('overview-extra-hook-1');
   while (true) {

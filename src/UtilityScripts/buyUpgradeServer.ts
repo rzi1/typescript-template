@@ -5,7 +5,7 @@ export async function main(ns: NS) {
   var maxServers = ns.getPurchasedServerLimit();
   const minRam = 8;
   let curRam: number = minRam;
-  const maxRam = 65536; /// 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536
+  const maxRam = parseInt(ns.args[0].toString()); /// 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536
   var buying = true;
   while (buying) {
     var servers = ns.getPurchasedServers();
